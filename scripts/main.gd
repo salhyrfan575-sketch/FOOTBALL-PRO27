@@ -366,3 +366,5 @@ func _check_goal() -> void:
 func _update_hud() -> void:
 	if is_instance_valid(score_label): score_label.text="%s  %d - %d  %s" % [home_team.to_upper(),score[0],score[1],away_team.to_upper()]
 	if is_instance_valid(timer_label): timer_label.text="%02d:%02d" % [seconds_left/60,seconds_left%60]
+
+# Android build workflow trigger: SDK setup updated.
