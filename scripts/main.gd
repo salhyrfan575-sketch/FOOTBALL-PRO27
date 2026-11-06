@@ -320,6 +320,9 @@ func _select_team(index: int) -> void:
 	var names := ["Persepolis", "Esteghlal", "Real Madrid", "Barcelona"]
 	home_team = names[index]
 	away_team = names[(index + 2) % 4]
+	var roster: Array = squad_data[home_team]
+	lineup_names = [str(roster[0]), str(roster[1]), str(roster[2]), str(roster[3]), str(roster[4])]
+	bench_names = [str(roster[5]), str(roster[6]), str(roster[7])]
 	for i in range(team_cards.size()):
 		var st := StyleBoxFlat.new()
 		var cols := [Color("#d71920"), Color("#1766c2"), Color("#f0f0f0"), Color("#a50044")]
