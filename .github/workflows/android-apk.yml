@@ -21,6 +21,11 @@ jobs:
           cmdline-tools-version: 12266719
           accept-android-sdk-licenses: true
           packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
       - name: Install Godot
         run: |
           V=4.4.1
