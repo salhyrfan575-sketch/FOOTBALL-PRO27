@@ -72,6 +72,15 @@ func _make_box(label: String, size: Vector3, pos: Vector3, color: Color) -> Mesh
 	mat.roughness = 0.9
 	node.material_override = mat
 	add_child(node)
+	if label == "Pitch":
+		var ground_body := StaticBody3D.new()
+		ground_body.position = pos
+		var ground_shape := CollisionShape3D.new()
+		var box_shape := BoxShape3D.new()
+		box_shape.size = size
+		ground_shape.shape = box_shape
+		ground_body.add_child(ground_shape)
+		add_child(ground_body)
 	return node
 
 func _make_ring(pos: Vector3, radius: float, color: Color) -> void:
@@ -103,6 +112,13 @@ func _build_player(team_color: Color, pos: Vector3, is_home: bool, index: int) -
 	mat.albedo_color = team_color
 	visual.material_override = mat
 	body.add_child(visual)
+	var player_collider := CollisionShape3D.new()
+	var player_shape := CapsuleShape3D.new()
+	player_shape.radius = 0.4
+	player_shape.height = 1.65
+	player_collider.shape = player_shape
+	player_collider.position.y = 0.85
+	body.add_child(player_collider)
 	var head := MeshInstance3D.new()
 	var head_mesh := SphereMesh.new()
 	head_mesh.radius = 0.25
