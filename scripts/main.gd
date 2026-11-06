@@ -455,7 +455,7 @@ func _select_bench(index: int) -> void:
 		_show_formation()
 
 func _swap_squad() -> void:
-	var temp := lineup_names[selected_lineup_slot]
+	var temp: String = str(lineup_names[selected_lineup_slot])
 	lineup_names[selected_lineup_slot] = bench_names[selected_bench_slot]
 	bench_names[selected_bench_slot] = temp
 	selected_lineup_slot = -1
