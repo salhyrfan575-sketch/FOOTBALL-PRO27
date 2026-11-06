@@ -53,7 +53,8 @@ jobs:
         timeout-minutes: 15
         run: |
           mkdir -p build
-          timeout 12m godot --headless --path . --install-android-build-template --export-debug "Android" build/FootballPro27.apk
+          timeout 5m godot --headless --editor --path . --install-android-build-template
+          timeout 8m godot --headless --path . --verbose --export-debug "Android" build/FootballPro27.apk
           test -s build/FootballPro27.apk
       - uses: actions/upload-artifact@v4
         with:
