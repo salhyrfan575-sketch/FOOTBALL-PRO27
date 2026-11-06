@@ -77,6 +77,36 @@ func _build_world() -> void:
 	for z in [-FIELD_Z / 2, FIELD_Z / 2]:
 		_make_box("Penalty box", Vector3(10, 0.025, 3.2), Vector3(0, 0.16, z - sign(z) * 1.6), Color.WHITE)
 		_make_goal(z)
+	_build_stadium()
+	_build_pitch_details()
+
+func _build_pitch_details() -> void:
+	# Alternating turf bands and complete boundary/box markings.
+	for i in range(8):
+		var z := -FIELD_Z / 2.0 + 1.4 + float(i) * 2.8
+		var band := _make_box("Mown grass stripe", Vector3(FIELD_X - 0.2, 0.012, 2.8), Vector3(0, 0.145, z), Color("#2c8543") if i % 2 == 0 else Color("#267a3c"))
+	for x in [-FIELD_X / 2.0, FIELD_X / 2.0]:
+		_make_box("Touch line", Vector3(0.07, 0.025, FIELD_Z), Vector3(x, 0.17, 0), Color.WHITE)
+	for z in [-FIELD_Z / 2.0, FIELD_Z / 2.0]:
+		_make_box("Goal line", Vector3(FIELD_X, 0.025, 0.07), Vector3(0, 0.17, z), Color.WHITE)
+	for z in [-FIELD_Z / 2.0 + 3.2, FIELD_Z / 2.0 - 3.2]:
+		_make_box("Penalty area side", Vector3(10, 0.025, 0.07), Vector3(0, 0.17, z), Color.WHITE)
+		_make_box("Penalty area edge", Vector3(0.07, 0.025, 3.2), Vector3(-5, 0.17, z + (1.6 if z < 0 else -1.6)), Color.WHITE)
+		_make_box("Penalty area edge", Vector3(0.07, 0.025, 3.2), Vector3(5, 0.17, z + (1.6 if z < 0 else -1.6)), Color.WHITE)
+
+func _build_stadium() -> void:
+	# Compact stands, advertising boards and floodlights frame the pitch.
+	_make_box("Stadium floor", Vector3(48, 0.3, 34), Vector3(0, -0.48, 0), Color("#303b42"))
+	for side in [-1.0, 1.0]:
+		for row in range(5):
+			var stand := _make_box("Stands", Vector3(42, 0.55, 1.1), Vector3(0, 0.25 + float(row) * 0.62, side * (13.2 + float(row) * 0.75)), Color("#45545d") if row % 2 == 0 else Color("#37454e"))
+			for seat in range(22):
+				var seat_box := _make_box("Stadium seat", Vector3(0.42, 0.28, 0.42), Vector3(-19.5 + float(seat) * 1.85, 0.75 + float(row) * 0.62, side * (13.1 + float(row) * 0.75)), Color("#b52b36") if seat % 3 == 0 else Color("#d0d5d8"))
+		_make_box("Advertising board", Vector3(38, 0.75, 0.22), Vector3(0, 0.48, side * 11.35), Color("#123c52"))
+	for x in [-22.0, 22.0]:
+		for z in [-14.0, 14.0]:
+			var pole := _make_box("Floodlight pole", Vector3(0.28, 12, 0.28), Vector3(x, 5.5, z), Color("#aeb8bd"))
+			_make_box("Floodlight panel", Vector3(2.2, 0.5, 0.6), Vector3(x, 11.7, z), Color("#f5f1d7"))
 
 func _make_box(label: String, size: Vector3, pos: Vector3, color: Color) -> MeshInstance3D:
 	var node := MeshInstance3D.new()
@@ -120,16 +150,61 @@ func _build_player(team_color: Color, pos: Vector3, is_home: bool, index: int) -
 	var body := CharacterBody3D.new()
 	body.position = pos
 	body.name = ("Home_" if is_home else "Away_") + str(index)
-	var visual := MeshInstance3D.new()
-	var capsule := CapsuleMesh.new()
-	capsule.radius = 0.42
-	capsule.height = 1.65
-	visual.mesh = capsule
-	visual.position.y = 0.95
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = team_color
-	visual.material_override = mat
-	body.add_child(visual)
+	# Distinct jersey, shorts, arms and boots instead of a single capsule placeholder.
+	var jersey := MeshInstance3D.new()
+	var torso := CapsuleMesh.new()
+	torso.radius = 0.34
+	torso.height = 0.92
+	jersey.mesh = torso
+	jersey.position.y = 1.22
+	var jersey_mat := StandardMaterial3D.new()
+	jersey_mat.albedo_color = team_color
+	jersey_mat.roughness = 0.72
+	jersey.material_override = jersey_mat
+	body.add_child(jersey)
+	var shorts := MeshInstance3D.new()
+	var shorts_mesh := CylinderMesh.new()
+	shorts_mesh.top_radius = 0.29
+	shorts_mesh.bottom_radius = 0.31
+	shorts_mesh.height = 0.36
+	shorts.mesh = shorts_mesh
+	shorts.position.y = 0.72
+	var shorts_mat := StandardMaterial3D.new()
+	shorts_mat.albedo_color = Color("#17202a")
+	shorts.material_override = shorts_mat
+	body.add_child(shorts)
+	for side in [-1.0, 1.0]:
+		var arm := MeshInstance3D.new()
+		var arm_mesh := CapsuleMesh.new()
+		arm_mesh.radius = 0.105
+		arm_mesh.height = 0.68
+		arm.mesh = arm_mesh
+		arm.position = Vector3(side * 0.39, 1.18, 0)
+		arm.rotation.z = side * -0.12
+		var arm_mat := StandardMaterial3D.new()
+		arm_mat.albedo_color = team_color
+		arm.material_override = arm_mat
+		body.add_child(arm)
+		var leg := MeshInstance3D.new()
+		var leg_mesh := CylinderMesh.new()
+		leg_mesh.top_radius = 0.115
+		leg_mesh.bottom_radius = 0.095
+		leg_mesh.height = 0.62
+		leg.mesh = leg_mesh
+		leg.position = Vector3(side * 0.16, 0.34, 0)
+		var leg_mat := StandardMaterial3D.new()
+		leg_mat.albedo_color = Color("#20252b")
+		leg.material_override = leg_mat
+		body.add_child(leg)
+		var boot := MeshInstance3D.new()
+		var boot_mesh := BoxMesh.new()
+		boot_mesh.size = Vector3(0.18, 0.12, 0.32)
+		boot.mesh = boot_mesh
+		boot.position = Vector3(side * 0.16, 0.08, -0.07)
+		var boot_mat := StandardMaterial3D.new()
+		boot_mat.albedo_color = Color("#111820")
+		boot.material_override = boot_mat
+		body.add_child(boot)
 	var player_collider := CollisionShape3D.new()
 	var player_shape := CapsuleShape3D.new()
 	player_shape.radius = 0.4
