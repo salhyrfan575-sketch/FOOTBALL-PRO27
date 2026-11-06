@@ -49,12 +49,15 @@ jobs:
           EOF
       - name: Import project
         run: godot --headless --editor --path . --import
-      - name: Install template and export APK
-        timeout-minutes: 15
+      - name: Export APK using official Android template
+        timeout-minutes: 10
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p build
-          timeout 5m godot --headless --editor --path . --install-android-build-template
-          timeout 8m godot --headless --path . --verbose --export-debug "Android" build/FootballPro27.apk
+          godot --headless --path . --verbose --export-debug "Android" build/FootballPro27.apk
           test -s build/FootballPro27.apk
       - uses: actions/upload-artifact@v4
         with:
