@@ -91,7 +91,7 @@ func _make_ring(pos: Vector3, radius: float, color: Color) -> void:
 		seg.rotation.y = -atan2(sin(b)-sin(a), cos(b)-cos(a))
 
 func _make_goal(z: float) -> void:
-	var gz := z - sign(z) * 0.7
+	var gz: float = z - signf(z) * 0.7
 	for x in [-2.1, 2.1]:
 		_make_box("Goal post", Vector3(0.16, 2.1, 0.16), Vector3(x, 1.15, gz), Color.WHITE)
 	_make_box("Goal crossbar", Vector3(4.3, 0.16, 0.16), Vector3(0, 2.2, gz), Color.WHITE)
