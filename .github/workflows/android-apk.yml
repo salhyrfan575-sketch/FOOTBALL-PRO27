@@ -54,15 +54,20 @@ jobs:
           EOF
       - name: Import project
         run: godot --headless --editor --path . --import
-      - name: Export APK using official Android template
+      - name: Verify Android export templates
+        run: |
+          ls -lh ~/.local/share/godot/export_templates/4.4.1.stable/
+          test -s ~/.local/share/godot/export_templates/4.4.1.stable/android_debug.apk
+          test -s ~/.local/share/godot/export_templates/4.4.1.stable/android_release.apk
+      - name: Export and sign APK
         timeout-minutes: 10
-        env:
-          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
-          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
-          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p build
-          godot --headless --path . --verbose --export-debug "Android" build/FootballPro27.apk
+          godot --headless --path . --verbose --export-debug "Android" build/FootballPro27-unsigned.apk
+          test -s build/FootballPro27-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -p 4 build/FootballPro27-unsigned.apk build/FootballPro27-aligned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks ~/.android/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out build/FootballPro27.apk build/FootballPro27-aligned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify build/FootballPro27.apk
           test -s build/FootballPro27.apk
       - uses: actions/upload-artifact@v4
         with:
