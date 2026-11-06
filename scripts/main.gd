@@ -347,6 +347,9 @@ func _show_home() -> void:
 
 func _toggle_sound() -> void:
 	sound_enabled = not sound_enabled
+	var master_bus := AudioServer.get_bus_index("Master")
+	if master_bus >= 0:
+		AudioServer.set_bus_mute(master_bus, not sound_enabled)
 	_show_home()
 
 func _show_quality() -> void:
@@ -386,7 +389,7 @@ func _show_team_select() -> void:
 	_make_title(menu_root, "برای جابه‌جایی بین تیم‌ها از کنترل جهت‌دار استفاده کن", Vector2(280, 420), Vector2(720, 35), 17)
 	_make_menu_button(menu_root, "◀", Vector2(440, 470), Vector2(80, 65), func(): _select_team(posmod(selected_team_index - 1, 4)))
 	_make_menu_button(menu_root, "▶", Vector2(760, 470), Vector2(80, 65), func(): _select_team((selected_team_index + 1) % 4))
-	_make_menu_button(menu_root, "ادامه", Vector2(515, 555), Vector2(250, 60), _show_formation)
+	_make_menu_button(menu_root, "PLAY GAME  ▶", Vector2(515, 555), Vector2(250, 60), _show_formation)
 	_make_menu_button(menu_root, "بازگشت", Vector2(150, 555), Vector2(190, 60), _show_home)
 	_select_team(selected_team_index)
 
