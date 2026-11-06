@@ -1,0 +1,59 @@
+name: Build Android APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '**.gd'
+      - '**.tscn'
+      - '**.godot'
+      - 'export_presets.cfg'
+      - '.github/workflows/android-apk.yml'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android packages
+        run: |
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          yes | sdkmanager --licenses
+      - name: Install Godot
+        run: |
+          V=4.4.1
+          wget -q https://github.com/godotengine/godot/releases/download/${V}-stable/Godot_v${V}-stable_linux.x86_64.zip -O godot.zip
+          unzip -q godot.zip -d godot-bin
+          chmod +x godot-bin/Godot_v${V}-stable_linux.x86_64
+          sudo mv godot-bin/Godot_v${V}-stable_linux.x86_64 /usr/local/bin/godot
+      - name: Install Android export templates
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates/4.4.1.stable
+          wget -q https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz -O templates.tpz
+          unzip -q templates.tpz -d templates
+          cp -r templates/templates/* ~/.local/share/godot/export_templates/4.4.1.stable/
+      - name: Prepare signing key
+        run: |
+          mkdir -p ~/.android
+          keytool -genkeypair -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+      - name: Configure Godot Android SDK
+        run: |
+          mkdir -p ~/.config/godot
+          cat > ~/.config/godot/editor_settings-4.tres <<EOF
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          EOF
+      - name: Import project
+        run: godot --headless --editor --path . --import
+      - name: Export APK
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-debug "Android" build/FootballPro27.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FootballPro27-Android-APK
+          path: build/FootballPro27.apk
+          if-no-files-found: error
