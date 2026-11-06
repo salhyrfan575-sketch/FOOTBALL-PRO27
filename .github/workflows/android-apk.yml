@@ -12,6 +12,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - name: Set up Android SDK
@@ -48,12 +49,12 @@ jobs:
           EOF
       - name: Import project
         run: godot --headless --editor --path . --import
-      - name: Install Android build template
-        run: godot --headless --editor --path . --install-android-build-template
-      - name: Export APK
+      - name: Install template and export APK
+        timeout-minutes: 15
         run: |
           mkdir -p build
-          godot --headless --path . --export-debug "Android" build/FootballPro27.apk
+          timeout 12m godot --headless --path . --install-android-build-template --export-debug "Android" build/FootballPro27.apk
+          test -s build/FootballPro27.apk
       - uses: actions/upload-artifact@v4
         with:
           name: FootballPro27-Android-APK
