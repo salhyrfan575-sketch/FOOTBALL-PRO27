@@ -48,6 +48,8 @@ jobs:
           EOF
       - name: Import project
         run: godot --headless --editor --path . --import
+      - name: Install Android build template
+        run: godot --headless --editor --path . --install-android-build-template
       - name: Export APK
         run: |
           mkdir -p build
