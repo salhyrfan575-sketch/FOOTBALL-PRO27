@@ -431,7 +431,6 @@ func _show_formation() -> void:
 	midline.size = Vector2(700, 3)
 	midline.color = Color.WHITE
 	menu_root.add_child(midline)
-	var roster: Array[String] = squad_data[home_team]
 	var positions := [Vector2(430, 495), Vector2(265, 405), Vector2(595, 405), Vector2(430, 305), Vector2(430, 190)]
 	for i in range(5):
 		var idx := i
