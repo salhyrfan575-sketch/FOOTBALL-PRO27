@@ -36,6 +36,11 @@ func _run_smoke_tests() -> void:
 		return
 
 	game.call("_show_team_select")
+	var expected_teams := ["Persepolis", "Esteghlal", "Real Madrid", "Barcelona"]
+	for i in range(expected_teams.size()):
+		game.call("_select_team", i)
+		if not _expect(game.get("home_team") == expected_teams[i], "team card selection " + expected_teams[i]):
+			return
 	game.call("_select_team", 1)
 	if not _expect(game.get("home_team") == "Esteghlal" and game.get("away_team") == "Barcelona", "team selection updates match teams"):
 		return
@@ -82,6 +87,12 @@ func _run_smoke_tests() -> void:
 	game.call("_check_goal")
 	var score: Array = game.get("score")
 	if not _expect(score[0] == 1, "goal detection updates home score"):
+		return
+	game.set("goal_cooldown", 0.0)
+	match_ball.global_position = Vector3(18.0, 0.6, 0.0)
+	match_ball.linear_velocity = Vector3(3.0, 0.0, 0.0)
+	game.call("_check_goal")
+	if not _expect(match_ball.global_position.x <= 16.61 and match_ball.linear_velocity.x < 0.0, "ball is recovered after leaving touchline"):
 		return
 
 	game.call("_return_to_menu")
