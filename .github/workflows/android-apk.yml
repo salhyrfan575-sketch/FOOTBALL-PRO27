@@ -55,7 +55,13 @@ jobs:
       - name: Import project
         run: godot --headless --editor --path . --import
       - name: Run headless gameplay smoke tests
-        run: godot --headless --path . --script res://tests/smoke_test.gd
+        run: |
+          set -o pipefail
+          godot --headless --path . --script res://tests/smoke_test.gd 2>&1 | tee smoke-test.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed to load script|Invalid call|Invalid get index|Node not found|ERROR:' smoke-test.log; then
+            echo "Godot smoke test emitted runtime errors"
+            exit 1
+          fi
       - name: Verify Android export templates
         run: |
           ls -lh ~/.local/share/godot/export_templates/4.4.1.stable/
