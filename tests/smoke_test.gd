@@ -36,6 +36,16 @@ func _run_smoke_tests() -> void:
 		return
 
 	game.call("_show_team_select")
+	var team_cards: Array = game.get("team_cards")
+	if not _expect(team_cards.size() == 4, "four club selection cards are present"):
+		return
+	for card in team_cards:
+		var has_badge := false
+		for child in card.get_children():
+			if child is Panel:
+				has_badge = true
+		if not _expect(has_badge, "club card has a generated crest badge"):
+			return
 	var expected_teams := ["Persepolis", "Esteghlal", "Real Madrid", "Barcelona"]
 	for i in range(expected_teams.size()):
 		game.call("_select_team", i)
@@ -61,6 +71,13 @@ func _run_smoke_tests() -> void:
 	if not _expect(game.get("match_started") == true and players.size() == 10, "match starts with ten players for 5v5"):
 		return
 	if not _expect(is_instance_valid(game.get("ball")) and is_instance_valid(game.get("active_player")), "match creates ball and controlled player"):
+		return
+	var active := game.get("active_player") as CharacterBody3D
+	if not _expect((active.get_meta("animated_legs", []) as Array).size() == 2 and (active.get_meta("animated_arms", []) as Array).size() == 2, "player model exposes animated limbs"):
+		return
+	game.call("_play_sfx", 440.0, 0.04)
+	var sound_stream := (game.get("audio_player") as AudioStreamPlayer).stream as AudioStreamWAV
+	if not _expect(sound_stream != null and sound_stream.data.size() > 0, "procedural match sound effect is generated"):
 		return
 
 	var touch := InputEventScreenTouch.new()
