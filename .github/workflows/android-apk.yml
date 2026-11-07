@@ -54,6 +54,8 @@ jobs:
           EOF
       - name: Import project
         run: godot --headless --editor --path . --import
+      - name: Run headless gameplay smoke tests
+        run: godot --headless --path . --script res://tests/smoke_test.gd
       - name: Verify Android export templates
         run: |
           ls -lh ~/.local/share/godot/export_templates/4.4.1.stable/
