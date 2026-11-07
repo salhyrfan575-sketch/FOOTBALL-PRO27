@@ -394,7 +394,11 @@ func _show_team_select() -> void:
 	_select_team(selected_team_index)
 
 func _select_team(index: int) -> void:
+	if index < 0 or index >= 4:
+		return
 	selected_team_index = index
+	selected_lineup_slot = -1
+	selected_bench_slot = -1
 	var names := ["Persepolis", "Esteghlal", "Real Madrid", "Barcelona"]
 	home_team = names[index]
 	away_team = names[(index + 2) % 4]
@@ -467,6 +471,25 @@ func _launch_match() -> void:
 	_start_match()
 	_apply_quality()
 
+func _return_to_menu() -> void:
+	match_started = false
+	joystick_vector = Vector2.ZERO
+	joystick_touch = -1
+	for p in players:
+		if is_instance_valid(p):
+			p.queue_free()
+	players.clear()
+	player_data.clear()
+	active_player = null
+	if is_instance_valid(ball):
+		ball.queue_free()
+	ball = null
+	for child in hud.get_children():
+		if child != menu_root:
+			child.queue_free()
+	menu_root.visible = true
+	_show_home()
+
 func _apply_quality() -> void:
 	if not is_instance_valid(camera): return
 	camera.far = 80.0 if quality_index == 0 else 160.0
@@ -505,7 +528,7 @@ func _build_ui() -> void:
 	_add_button("←", Vector2(35,575), Vector2(52,48), func(): joystick_vector = Vector2(-1,0))
 	_add_button("→", Vector2(145,575), Vector2(52,48), func(): joystick_vector = Vector2(1,0))
 	_add_button("STOP", Vector2(92,575), Vector2(52,48), func(): joystick_vector = Vector2.ZERO)
-	_add_button("MENU", Vector2(1120,20), Vector2(130,48), func(): match_started = false; menu_root.visible = true; _show_home())
+	_add_button("MENU", Vector2(1120,20), Vector2(130,48), _return_to_menu)
 
 func _add_button(caption: String, pos: Vector2, size: Vector2, callback: Callable) -> void:
 	var b := Button.new()
@@ -517,11 +540,18 @@ func _add_button(caption: String, pos: Vector2, size: Vector2, callback: Callabl
 	hud.add_child(b)
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventScreenTouch and not event.pressed:
-		joystick_touch = -1
-		joystick_vector = Vector2.ZERO
-	elif event is InputEventScreenDrag and event.position.x < 230 and event.position.y > 470:
-		joystick_vector = ((event.position - Vector2(115,590)) / 65.0).limit_length(1.0)
+	if event is InputEventScreenTouch:
+		if event.pressed and joystick_touch == -1 and event.position.x < 230.0 and event.position.y > 470.0:
+			joystick_touch = event.index
+			_update_touch_joystick(event.position)
+		elif not event.pressed and event.index == joystick_touch:
+			joystick_touch = -1
+			joystick_vector = Vector2.ZERO
+	elif event is InputEventScreenDrag and event.index == joystick_touch:
+		_update_touch_joystick(event.position)
+
+func _update_touch_joystick(screen_position: Vector2) -> void:
+	joystick_vector = ((screen_position - Vector2(115.0, 590.0)) / 65.0).limit_length(1.0)
 
 func _physics_process(delta: float) -> void:
 	if not match_started: return
@@ -548,6 +578,10 @@ func _move_human() -> void:
 	var speed := SPRINT_SPEED if Input.is_key_pressed(KEY_SHIFT) else PLAYER_SPEED
 	active_player.velocity = Vector3(axis.x,0,axis.y) * speed
 	active_player.move_and_slide()
+	var player_position := active_player.global_position
+	player_position.x = clampf(player_position.x, -FIELD_X / 2.0 + 0.65, FIELD_X / 2.0 - 0.65)
+	player_position.z = clampf(player_position.z, -FIELD_Z / 2.0 + 0.65, FIELD_Z / 2.0 - 0.65)
+	active_player.global_position = player_position
 	if axis.length() > 0.1: active_player.rotation.y = atan2(axis.x,axis.y)
 
 func _move_ai(delta: float) -> void:
@@ -563,6 +597,10 @@ func _move_ai(delta: float) -> void:
 		if dir.length() > 0.5:
 			p.velocity = dir.normalized() * (3.5 if home else 4.1)
 			p.move_and_slide()
+			var ai_position := p.global_position
+			ai_position.x = clampf(ai_position.x, -FIELD_X / 2.0 + 0.65, FIELD_X / 2.0 - 0.65)
+			ai_position.z = clampf(ai_position.z, -FIELD_Z / 2.0 + 0.65, FIELD_Z / 2.0 - 0.65)
+			p.global_position = ai_position
 			p.rotation.y = atan2(dir.x,dir.z)
 		var to_ball := ball.global_position-p.global_position
 		if not home and to_ball.length() < 1.25:
@@ -609,15 +647,20 @@ func _follow_camera(delta: float) -> void:
 
 func _check_goal() -> void:
 	if goal_cooldown > 0: return
-	if absf(ball.global_position.z) > FIELD_Z/2-0.3 and absf(ball.global_position.x)<2.1:
-		if ball.global_position.z<0: score[0]+=1
-		else: score[1]+=1
-		goal_cooldown=2.0
-		message_label.text="GOAL!"
-		ball.linear_velocity=Vector3.ZERO
-		ball.angular_velocity=Vector3.ZERO
-		ball.global_position=Vector3(0,0.6,0)
+	if absf(ball.global_position.z) > FIELD_Z / 2.0 - 0.3 and absf(ball.global_position.x) < 2.1:
+		if ball.global_position.z < 0: score[0] += 1
+		else: score[1] += 1
+		goal_cooldown = 2.0
+		message_label.text = "GOAL!"
+		ball.linear_velocity = Vector3.ZERO
+		ball.angular_velocity = Vector3.ZERO
+		ball.global_position = Vector3(0, 0.6, 0)
 		_update_hud()
+	elif absf(ball.global_position.x) > FIELD_X / 2.0 or (absf(ball.global_position.z) > FIELD_Z / 2.0 and absf(ball.global_position.x) >= 2.1):
+		ball.global_position.x = clampf(ball.global_position.x, -FIELD_X / 2.0 + 0.4, FIELD_X / 2.0 - 0.4)
+		ball.global_position.z = clampf(ball.global_position.z, -FIELD_Z / 2.0 + 0.4, FIELD_Z / 2.0 - 0.4)
+		ball.linear_velocity *= -0.35
+		ball.angular_velocity *= 0.35
 
 func _update_hud() -> void:
 	if is_instance_valid(score_label): score_label.text="%s  %d - %d  %s" % [home_team.to_upper(),score[0],score[1],away_team.to_upper()]
