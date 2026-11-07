@@ -285,6 +285,7 @@ func _start_match() -> void:
 		p.add_child(tag)
 		if i == 0:
 			active_player = p
+			p.name = "Home_Goalkeeper"
 	for i in range(5):
 		var p := _build_player(teams[away_team], ap[i], false, i)
 		players.append(p)
@@ -417,7 +418,8 @@ func _show_team_select() -> void:
 	for i in range(4):
 		var idx := i
 		var x := 145.0 + float(i) * 260.0
-		var card := _make_menu_button(menu_root, "◆ " + crests[i] + " ◆\n" + names[i] + "\nلباس اختصاصی", Vector2(x, 190), Vector2(225, 205), func(): _select_team(idx))
+		var card := _make_menu_button(menu_root, "\n" + names[i] + "\nلباس اختصاصی", Vector2(x, 190), Vector2(225, 205), func(): _select_team(idx))
+		_add_team_crest(card, crests[i], kit_colors[i])
 		card.add_theme_font_size_override("font_size", 24)
 		var card_style := StyleBoxFlat.new()
 		card_style.bg_color = kit_colors[i]
@@ -433,6 +435,28 @@ func _show_team_select() -> void:
 	_make_menu_button(menu_root, "PLAY GAME  ▶", Vector2(515, 555), Vector2(250, 60), _show_formation)
 	_make_menu_button(menu_root, "بازگشت", Vector2(150, 555), Vector2(190, 60), _show_home)
 	_select_team(selected_team_index)
+
+func _add_team_crest(card: Button, code: String, team_color: Color) -> void:
+	var badge := Panel.new()
+	badge.position = Vector2(78, 8)
+	badge.size = Vector2(68, 68)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var badge_style := StyleBoxFlat.new()
+	badge_style.bg_color = Color("#102d35")
+	badge_style.border_color = Color("#e0bd68")
+	badge_style.set_border_width_all(3)
+	badge_style.set_corner_radius_all(34)
+	badge.add_theme_stylebox_override("panel", badge_style)
+	card.add_child(badge)
+	var mark := Label.new()
+	mark.text = code
+	mark.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	mark.add_theme_font_size_override("font_size", 22)
+	mark.add_theme_color_override("font_color", team_color)
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.add_child(mark)
 
 func _select_team(index: int) -> void:
 	if index < 0 or index >= 4:
@@ -617,8 +641,11 @@ func _physics_process(delta: float) -> void:
 	if not match_started: return
 	if seconds_left > 0:
 		goal_cooldown = maxf(0.0, goal_cooldown - delta)
-		if Engine.get_physics_frames() % 60 == 0:
-			seconds_left -= 1
+		match_elapsed += delta
+		if match_elapsed >= 1.0:
+			var elapsed_seconds := int(floor(match_elapsed))
+			seconds_left = maxi(0, seconds_left - elapsed_seconds)
+			match_elapsed -= float(elapsed_seconds)
 			_update_hud()
 	else:
 		match_started = false
@@ -645,26 +672,47 @@ func _move_human() -> void:
 	if axis.length() > 0.1: active_player.rotation.y = atan2(axis.x,axis.y)
 
 func _move_ai(delta: float) -> void:
+	var home_shape := [Vector3(-4,0,6), Vector3(-10,0,2), Vector3(-10,0,9), Vector3(-14,0,5), Vector3(-1,0,2)]
+	var away_shape := [Vector3(4,0,-6), Vector3(10,0,-2), Vector3(10,0,-9), Vector3(14,0,-5), Vector3(1,0,-2)]
+	var nearest_home := 0
+	var nearest_away := 5
+	var home_distance := INF
+	var away_distance := INF
+	for slot in range(5):
+		var dh := players[slot].global_position.distance_to(ball.global_position)
+		if dh < home_distance:
+			home_distance = dh
+			nearest_home = slot
+		var da := players[slot + 5].global_position.distance_to(ball.global_position)
+		if da < away_distance:
+			away_distance = da
+			nearest_away = slot + 5
 	for i in range(players.size()):
 		var p := players[i]
-		if p == active_player: continue
+		if p == active_player:
+			continue
 		var home: bool = player_data[i]["home"]
-		var target := ball.global_position + Vector3(0,0,1)
-		if home:
-			target = Vector3(clampf(ball.global_position.x*0.35-4,-13,-2),0,clampf(ball.global_position.z*0.5+(i%5-2)*2.4,-8,9))
-		var dir := target-p.global_position
+		var slot: int = int(player_data[i]["slot"])
+		var designated_chaser := (home and i == nearest_home) or (not home and i == nearest_away)
+		var base: Vector3 = home_shape[slot] if home else away_shape[slot]
+		var ball_shift := Vector3(clampf(ball.global_position.x * 0.18, -3.0, 3.0), 0, clampf(ball.global_position.z * 0.16, -2.0, 2.0))
+		var target := ball.global_position + Vector3(0, 0, 0.3) if designated_chaser else base + ball_shift
+		var dir := target - p.global_position
 		dir.y = 0
-		if dir.length() > 0.5:
-			p.velocity = dir.normalized() * (3.5 if home else 4.1)
+		if dir.length() > 0.35:
+			p.velocity = dir.normalized() * (4.0 if designated_chaser else 2.6)
 			p.move_and_slide()
 			var ai_position := p.global_position
 			ai_position.x = clampf(ai_position.x, -FIELD_X / 2.0 + 0.65, FIELD_X / 2.0 - 0.65)
 			ai_position.z = clampf(ai_position.z, -FIELD_Z / 2.0 + 0.65, FIELD_Z / 2.0 - 0.65)
 			p.global_position = ai_position
-			p.rotation.y = atan2(dir.x,dir.z)
-		var to_ball := ball.global_position-p.global_position
-		if not home and to_ball.length() < 1.25:
-			ball.apply_central_impulse(Vector3(-to_ball.x,0.15,-to_ball.z).normalized()*1.5*delta*60)
+			p.rotation.y = atan2(dir.x, dir.z)
+		else:
+			p.velocity = Vector3.ZERO
+		var to_ball := ball.global_position - p.global_position
+		if not home and to_ball.length() < 1.35:
+			var tackle_dir := Vector3(-to_ball.x, 0.12, -to_ball.z).normalized()
+			ball.apply_central_impulse(tackle_dir * 1.1 * delta * 60.0)
 
 func _pass_ball() -> void:
 	if active_player.global_position.distance_to(ball.global_position) > 3.0:
