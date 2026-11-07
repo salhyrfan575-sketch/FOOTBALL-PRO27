@@ -37,6 +37,9 @@ var bench_names := ["بازیکن ذخیره ۱","بازیکن ذخیره ۲","�
 var selected_lineup_slot := -1
 var selected_bench_slot := -1
 var player_name_tags: Array[Label3D] = []
+var animation_clock := 0.0
+var audio_player: AudioStreamPlayer
+var match_elapsed := 0.0
 
 var squad_data := {
 	"Persepolis": ["پیام نیازمند","کنعانی‌زادگان","میلاد محمدی","سروش رفیعی","علی علیپور","امید عالیشاه","محمد خدابنده‌لو","اورونوف"],
@@ -46,6 +49,9 @@ var squad_data := {
 }
 
 func _ready() -> void:
+	audio_player = AudioStreamPlayer.new()
+	audio_player.name = "ProceduralSFX"
+	add_child(audio_player)
 	_build_world()
 	_build_home_menu()
 
@@ -162,6 +168,19 @@ func _build_player(team_color: Color, pos: Vector3, is_home: bool, index: int) -
 	jersey_mat.roughness = 0.72
 	jersey.material_override = jersey_mat
 	body.add_child(jersey)
+	var accent := _kit_accent(team_color)
+	for stripe_x in [-0.16, 0.16]:
+		var stripe := MeshInstance3D.new()
+		var stripe_mesh := BoxMesh.new()
+		stripe_mesh.size = Vector3(0.055, 0.66, 0.025)
+		stripe.mesh = stripe_mesh
+		stripe.position = Vector3(stripe_x, 1.22, -0.335)
+		var stripe_mat := StandardMaterial3D.new()
+		stripe_mat.albedo_color = accent
+		stripe.material_override = stripe_mat
+		body.add_child(stripe)
+	var animated_arms: Array[MeshInstance3D] = []
+	var animated_legs: Array[MeshInstance3D] = []
 	var shorts := MeshInstance3D.new()
 	var shorts_mesh := CylinderMesh.new()
 	shorts_mesh.top_radius = 0.29
@@ -185,6 +204,7 @@ func _build_player(team_color: Color, pos: Vector3, is_home: bool, index: int) -
 		arm_mat.albedo_color = team_color
 		arm.material_override = arm_mat
 		body.add_child(arm)
+		animated_arms.append(arm)
 		var leg := MeshInstance3D.new()
 		var leg_mesh := CylinderMesh.new()
 		leg_mesh.top_radius = 0.115
@@ -196,6 +216,7 @@ func _build_player(team_color: Color, pos: Vector3, is_home: bool, index: int) -
 		leg_mat.albedo_color = Color("#20252b")
 		leg.material_override = leg_mat
 		body.add_child(leg)
+		animated_legs.append(leg)
 		var boot := MeshInstance3D.new()
 		var boot_mesh := BoxMesh.new()
 		boot_mesh.size = Vector3(0.18, 0.12, 0.32)
@@ -222,10 +243,30 @@ func _build_player(team_color: Color, pos: Vector3, is_home: bool, index: int) -
 	skin.albedo_color = Color("#c98f69")
 	head.material_override = skin
 	body.add_child(head)
+	var hair := MeshInstance3D.new()
+	var hair_mesh := SphereMesh.new()
+	hair_mesh.radius = 0.255
+	hair_mesh.height = 0.25
+	hair.mesh = hair_mesh
+	hair.position = Vector3(0, 2.02, 0)
+	var hair_mat := StandardMaterial3D.new()
+	hair_mat.albedo_color = Color("#20252b")
+	hair.material_override = hair_mat
+	body.add_child(hair)
+	var shirt_number := Label3D.new()
+	shirt_number.text = str(index + 1)
+	shirt_number.font_size = 48
+	shirt_number.position = Vector3(0, 1.23, -0.37)
+	shirt_number.modulate = Color("#17202a") if team_color.r > 0.8 and team_color.g > 0.8 else Color.WHITE
+	shirt_number.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	body.add_child(shirt_number)
+	body.set_meta("animated_arms", animated_arms)
+	body.set_meta("animated_legs", animated_legs)
 	add_child(body)
 	return body
 
 func _start_match() -> void:
+	match_elapsed = 0.0
 	for p in players:
 		p.queue_free()
 	players.clear()
@@ -376,7 +417,7 @@ func _show_team_select() -> void:
 	for i in range(4):
 		var idx := i
 		var x := 145.0 + float(i) * 260.0
-		var card := _make_menu_button(menu_root, crests[i] + "\n" + names[i] + "\nلباس تیم", Vector2(x, 190), Vector2(225, 205), func(): _select_team(idx))
+		var card := _make_menu_button(menu_root, "◆ " + crests[i] + " ◆\n" + names[i] + "\nلباس اختصاصی", Vector2(x, 190), Vector2(225, 205), func(): _select_team(idx))
 		card.add_theme_font_size_override("font_size", 24)
 		var card_style := StyleBoxFlat.new()
 		card_style.bg_color = kit_colors[i]
@@ -522,20 +563,23 @@ func _build_ui() -> void:
 	_add_button("PASS", Vector2(1080,600), Vector2(82,62), _pass_ball)
 	_add_button("SHOOT", Vector2(1170,520), Vector2(90,70), _shoot_ball)
 	_add_button("SWITCH", Vector2(880,540), Vector2(90,55), _switch_player)
-	_add_button("↑", Vector2(90,515), Vector2(52,48), func(): joystick_vector = Vector2(0,-1))
-	_add_button("↓", Vector2(90,635), Vector2(52,48), func(): joystick_vector = Vector2(0,1))
-	_add_button("←", Vector2(35,575), Vector2(52,48), func(): joystick_vector = Vector2(-1,0))
-	_add_button("→", Vector2(145,575), Vector2(52,48), func(): joystick_vector = Vector2(1,0))
+	_add_button("↑", Vector2(90,515), Vector2(52,48), func(): pass, Vector2(0,-1))
+	_add_button("↓", Vector2(90,635), Vector2(52,48), func(): pass, Vector2(0,1))
+	_add_button("←", Vector2(35,575), Vector2(52,48), func(): pass, Vector2(-1,0))
+	_add_button("→", Vector2(145,575), Vector2(52,48), func(): pass, Vector2(1,0))
 	_add_button("STOP", Vector2(92,575), Vector2(52,48), func(): joystick_vector = Vector2.ZERO)
 	_add_button("MENU", Vector2(1120,20), Vector2(130,48), _return_to_menu)
 
-func _add_button(caption: String, pos: Vector2, size: Vector2, callback: Callable) -> void:
+func _add_button(caption: String, pos: Vector2, size: Vector2, callback: Callable, hold_axis: Vector2 = Vector2.ZERO) -> void:
 	var b := Button.new()
 	b.text = caption
 	b.position = pos
 	b.size = size
 	b.add_theme_font_size_override("font_size", 17)
 	b.pressed.connect(callback)
+	if hold_axis != Vector2.ZERO:
+		b.button_down.connect(func(): joystick_vector = hold_axis)
+		b.button_up.connect(func(): joystick_vector = Vector2.ZERO)
 	hud.add_child(b)
 
 func _input(event: InputEvent) -> void:
@@ -551,6 +595,23 @@ func _input(event: InputEvent) -> void:
 
 func _update_touch_joystick(screen_position: Vector2) -> void:
 	joystick_vector = ((screen_position - Vector2(115.0, 590.0)) / 65.0).limit_length(1.0)
+
+func _process(delta: float) -> void:
+	if not match_started:
+		return
+	animation_clock += delta
+	for i in range(players.size()):
+		var p := players[i]
+		if not is_instance_valid(p):
+			continue
+		var moving := Vector2(p.velocity.x, p.velocity.z).length()
+		var swing := sin(animation_clock * (9.0 if moving > 0.35 else 1.5) + float(i) * 0.7) * (0.48 if moving > 0.35 else 0.025)
+		var arms: Array = p.get_meta("animated_arms", [])
+		var legs: Array = p.get_meta("animated_legs", [])
+		for j in range(legs.size()):
+			(legs[j] as MeshInstance3D).rotation.x = swing * (1.0 if j == 0 else -1.0)
+		for j in range(arms.size()):
+			(arms[j] as MeshInstance3D).rotation.x = -swing * (0.7 if j == 0 else -0.7)
 
 func _physics_process(delta: float) -> void:
 	if not match_started: return
@@ -619,6 +680,7 @@ func _pass_ball() -> void:
 	var dir := teammate.global_position-ball.global_position
 	dir.y=0.12
 	ball.apply_central_impulse(dir.normalized()*8.5)
+	_play_sfx(520.0, 0.10)
 	message_label.text="PASS"
 
 func _shoot_ball() -> void:
@@ -629,6 +691,7 @@ func _shoot_ball() -> void:
 	dir.x = -active_player.global_position.x*0.035
 	dir.y=0.23
 	ball.apply_central_impulse(dir.normalized()*15.0)
+	_play_sfx(240.0, 0.18)
 	message_label.text="SHOT!"
 
 func _switch_player() -> void:
@@ -651,6 +714,7 @@ func _check_goal() -> void:
 		else: score[1] += 1
 		goal_cooldown = 2.0
 		message_label.text = "GOAL!"
+		_play_sfx(880.0, 0.32)
 		ball.linear_velocity = Vector3.ZERO
 		ball.angular_velocity = Vector3.ZERO
 		ball.global_position = Vector3(0, 0.6, 0)
@@ -660,6 +724,30 @@ func _check_goal() -> void:
 		ball.global_position.z = clampf(ball.global_position.z, -FIELD_Z / 2.0 + 0.4, FIELD_Z / 2.0 - 0.4)
 		ball.linear_velocity *= -0.35
 		ball.angular_velocity *= 0.35
+
+func _kit_accent(base: Color) -> Color:
+	if base.r > 0.8 and base.g > 0.8:
+		return Color("#d4ad55")
+	return base.lightened(0.48)
+
+func _play_sfx(frequency: float, duration: float) -> void:
+	if not sound_enabled or not is_instance_valid(audio_player):
+		return
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = 22050
+	stream.stereo = false
+	var sample_count := int(22050.0 * duration)
+	var bytes := PackedByteArray()
+	bytes.resize(sample_count * 2)
+	for i in range(sample_count):
+		var t := float(i) / 22050.0
+		var envelope := 1.0 - float(i) / float(sample_count)
+		var sample := int(sin(TAU * frequency * t) * envelope * 8500.0)
+		bytes.encode_s16(i * 2, sample)
+	stream.data = bytes
+	audio_player.stream = stream
+	audio_player.play()
 
 func _update_hud() -> void:
 	if is_instance_valid(score_label): score_label.text="%s  %d - %d  %s" % [home_team.to_upper(),score[0],score[1],away_team.to_upper()]
