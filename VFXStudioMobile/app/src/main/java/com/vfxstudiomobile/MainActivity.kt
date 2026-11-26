@@ -8,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -67,7 +68,7 @@ private fun EditorScreen() {
             }
             Box(Modifier.weight(1f).fillMaxWidth().padding(10.dp).background(Color.Black, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
                 val video = layers.firstOrNull { it.type == "VIDEO" }
-                if (video != null) AndroidView(factory = { ctx -> PlayerView(ctx).apply { player = player; useController = true } }, modifier = Modifier.fillMaxSize())
+                if (video != null) AndroidView(factory = { ctx -> PlayerView(ctx).apply { this.player = player; useController = true } }, modifier = Modifier.fillMaxSize())
                 else Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.Movie, null, tint = accent, modifier = Modifier.size(44.dp))
                     Text("Preview Monitor", color = Color.White)
